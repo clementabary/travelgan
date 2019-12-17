@@ -36,6 +36,8 @@ for epoch in range(hparams['n_epochs']):
         # Calculate losses and update weights
         dis_loss = model.dis_update(x_a, x_b)
         gen_loss = model.gen_update(x_a, x_b)
+        dis_losses.append(dis_loss)
+        gen_losses.append(gen_loss)
 
     # Logging losses
     dis_loss, gen_loss = mean(dis_losses), mean(gen_losses)
