@@ -1,0 +1,33 @@
+{
+  "n_epochs": 500,
+  "n_save_steps": 50,
+  "dataset": {
+    "data_path": "./data",
+    "label_a": "dog",
+    "label_b": "cat"
+  },
+  "loading": {
+    "batch_size": 16,
+    "shuffle": true
+  },
+  "model": {
+    "input_nc": 3,
+    "output_nc": 3,
+    "num_downs": 5,
+    "ngf": 32,
+    "dropout": false,
+    "ndf": 32,
+    "n_layers_dis": 3,
+    "nsf": 32,
+    "n_layers_siam": 4,
+    "latent_dim": 16,
+    "lr": 1e-4,
+    "margin": 10,
+    "lambda_adv": 1,
+    "lambda_travel": 10,
+    "lambda_margin": 10,
+    "lambda_gp": 0,
+    "sn": true,
+    "type": "vanilla"
+  }
+}
