@@ -52,8 +52,8 @@ class TravelGAN(nn.Module):
             list(self.gen_ba.parameters()) + \
             list(self.siam_a.parameters()) + \
             list(self.siam_b.parameters())
-        self.dis_optim = Adam([p for p in dis_params], lr=lr)
-        self.gen_optim = Adam([p for p in gen_params], lr=lr)
+        self.dis_optim = Adam([p for p in dis_params], lr=lr, betas=(0.5, 0.9))
+        self.gen_optim = Adam([p for p in gen_params], lr=lr, betas=(0.5, 0.9))
 
         # Losses
         self.adv_loss = AdversarialLoss(type, device)
