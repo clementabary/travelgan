@@ -1,10 +1,10 @@
 {
-  "n_epochs": 500,
-  "n_save_steps": 50,
+  "n_epochs": 12500,
+  "n_save_steps": 500,
   "dataset": {
     "data_path": "./data",
-    "label_a": "dog",
-    "label_b": "cat"
+    "label_a": "bird",
+    "label_b": "ship"
   },
   "loading": {
     "batch_size": 16,
@@ -13,15 +13,15 @@
   "model": {
     "input_nc": 3,
     "output_nc": 3,
-    "num_downs": 5,
-    "ngf": 32,
+    "num_downs": 3,
+    "ngf": 64,
     "dropout": false,
-    "ndf": 32,
-    "n_layers_dis": 3,
-    "nsf": 32,
-    "n_layers_siam": 4,
-    "latent_dim": 16,
-    "lr": 1e-4,
+    "ndf": 64,
+    "n_layers_dis": 2,
+    "nsf": 64,
+    "n_layers_siam": 2,
+    "latent_dim": 1000,
+    "lr": 2e-4,
     "margin": 10,
     "lambda_adv": 1,
     "lambda_travel": 10,
