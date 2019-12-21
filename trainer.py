@@ -42,8 +42,6 @@ class TravelGAN(nn.Module):
                                 num_downs, ngf, dropout, sn)
         self.dis_a = Discriminator(input_nc, ndf, n_layers_dis, sn)
         self.dis_b = Discriminator(input_nc, ndf, n_layers_dis, sn)
-        # self.siam_a = Siamese(input_nc, nsf, n_layers_siam, latent_dim)
-        # self.siam_b = Siamese(input_nc, nsf, n_layers_siam, latent_dim)
         self.siam = Siamese(input_nc, nsf, n_layers_siam, latent_dim)
 
         # Optimizers
@@ -51,8 +49,6 @@ class TravelGAN(nn.Module):
             list(self.dis_b.parameters())
         gen_params = list(self.gen_ab.parameters()) + \
             list(self.gen_ba.parameters()) + list(self.siam.parameters())
-            # list(self.siam_a.parameters()) + \
-            # list(self.siam_b.parameters())
         self.dis_optim = Adam([p for p in dis_params], lr=lr, betas=(0.5, 0.9))
         self.gen_optim = Adam([p for p in gen_params], lr=lr, betas=(0.5, 0.9))
 
@@ -87,23 +83,6 @@ class TravelGAN(nn.Module):
         dis_loss.backward()
         self.dis_optim.step()
         return dis_loss.item()
-
-    # def gen_update(self, x_a, x_b):
-    #     self.gen_optim.zero_grad()
-    #     x_ab = self.gen_ab(x_a)
-    #     x_ba = self.gen_ba(x_b)
-    #     adv_loss = self.adv_loss(self.dis_b(x_ab), True) + \
-    #         self.adv_loss(self.dis_a(x_ba), True)
-    #     travel_loss = self.travel_loss(x_a, x_ba, self.siam_a) + \
-    #         self.travel_loss(x_b, x_ab, self.siam_b)
-    #     margin_loss = self.margin_loss(
-    #         x_a, self.siam_a) + self.margin_loss(x_b, self.siam_b)
-    #     gen_loss = self.lambda_adv * adv_loss + \
-    #         self.lambda_travel * travel_loss + \
-    #         self.lambda_margin * margin_loss
-    #     gen_loss.backward()
-    #     self.gen_optim.step()
-    #     return gen_loss.item()
 
     def gen_update(self, x_a, x_b):
         self.gen_optim.zero_grad()
