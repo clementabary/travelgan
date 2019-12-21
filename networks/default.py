@@ -1,5 +1,5 @@
-"""(Slightly modified) code from junyanz/pytorch-CycleGAN-and-pix2pix repository
-for their CycleGAN and pix2pix paper implementation in PyTorch.
+"""(Slightly modified) code from junyanz/pytorch-CycleGAN-and-pix2pix
+repository for their CycleGAN and pix2pix paper implementation in PyTorch.
 """
 
 import torch
