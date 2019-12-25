@@ -17,7 +17,7 @@ class AdversarialLoss(nn.Module):
             self.loss = nn.BCEWithLogitsLoss()
         elif type == "lsgan":
             self.loss = nn.MSELoss()
-        elif type in ["wgan", "wgangp"]:
+        elif type in ["wgan", "wgangp", "hinge"]:
             self.loss = None
 
     def forward(self, x, bool):
@@ -30,6 +30,9 @@ class AdversarialLoss(nn.Module):
                 return self.loss(x, y)
         elif self.type in ["wgan", "wgangp"]:
             return - x.mean() if bool else x.mean()
+        elif self.type == "hinge":
+            relu = nn.ReLU(True)
+            return relu(1. - x).mean() if bool else relu(1. + x).mean()
 
 
 @torch.enable_grad()
