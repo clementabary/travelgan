@@ -1,9 +1,9 @@
 {
-  "n_epochs": 12500,
-  "n_save_steps": 500,
+  "n_epochs": 1000,
+  "n_save_steps": 100,
   "dataset": {
-    "type": "cifar",
-    "data_path": "./data",
+    "type": "imagenet",
+    "data_path": "../../data/imagenet",
     "label_a": "bird",
     "label_b": "ship",
     "n_tracks": 5000
@@ -15,13 +15,13 @@
   "model": {
     "input_nc": 3,
     "output_nc": 3,
-    "num_downs": 3,
+    "num_downs": 5,
     "ngf": 64,
     "dropout": false,
     "ndf": 64,
-    "n_layers_dis": 2,
+    "n_layers_dis": 4,
     "nsf": 64,
-    "n_layers_siam": 2,
+    "n_layers_siam": 4,
     "latent_dim": 1000,
     "lr": 2e-4,
     "margin": 10,
