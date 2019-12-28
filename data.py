@@ -28,12 +28,11 @@ class ImageNetSubset(Dataset):
         dataset = sorted(glob.glob(data_path + '/{}/*/*.jpg'.format(label)))
         self.data = []
         for idx, file in enumerate(dataset):
-            im = Image.open(file)
+            im = Image.open(file).convert('RGB')
             self.data.append(im.copy())
             im.close()
             if idx + 1 >= n_tracks:
                 break
-        # self.data = map(Image.open, glob.glob(data_path.format(label)))
         self.transform = get_transform(True, True, True, True)
 
     def __getitem__(self, idx):
