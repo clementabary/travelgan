@@ -11,8 +11,8 @@ import os
 class TravelGAN(nn.Module):
     def __init__(self, input_nc, output_nc, num_downs, ngf, dropout,
                  ndf, n_layers_dis, nsf, n_layers_siam, latent_dim,
-                 lr, margin, lambda_adv, lambda_travel, lambda_margin,
-                 lambda_gp, type, sn, device="cpu"):
+                 lr_gen, lr_dis, margin, lambda_adv, lambda_travel,
+                 lambda_margin, lambda_gp, type, sn, sa, device="cpu"):
         super(TravelGAN, self).__init__()
         # Parameters
         self.input_nc = input_nc
@@ -25,7 +25,8 @@ class TravelGAN(nn.Module):
         self.nsf = nsf
         self.n_layers_siam = n_layers_siam
         self.laten_dim = latent_dim
-        self.lr = lr
+        self.lr_gen = lr_gen
+        self.lr_dis = lr_dis
         self.margin = margin
         self.device = device
         self.lambda_adv = lambda_adv
@@ -34,14 +35,15 @@ class TravelGAN(nn.Module):
         self.lambda_gp = lambda_gp
         self.type = type
         self.sn = sn
+        self.sa = sa
 
         # Modules
         self.gen_ab = Generator(input_nc, output_nc,
-                                num_downs, ngf, dropout, sn)
+                                num_downs, ngf, dropout, sn, sa)
         self.gen_ba = Generator(input_nc, output_nc,
-                                num_downs, ngf, dropout, sn)
-        self.dis_a = Discriminator(input_nc, ndf, n_layers_dis, sn)
-        self.dis_b = Discriminator(input_nc, ndf, n_layers_dis, sn)
+                                num_downs, ngf, dropout, sn, sa)
+        self.dis_a = Discriminator(input_nc, ndf, n_layers_dis, sn, sa)
+        self.dis_b = Discriminator(input_nc, ndf, n_layers_dis, sn, sa)
         self.siam = Siamese(input_nc, nsf, n_layers_siam, latent_dim)
 
         # Optimizers
@@ -49,8 +51,10 @@ class TravelGAN(nn.Module):
             list(self.dis_b.parameters())
         gen_params = list(self.gen_ab.parameters()) + \
             list(self.gen_ba.parameters()) + list(self.siam.parameters())
-        self.dis_optim = Adam([p for p in dis_params], lr=lr, betas=(0.5, 0.9))
-        self.gen_optim = Adam([p for p in gen_params], lr=lr, betas=(0.5, 0.9))
+        self.dis_optim = Adam([p for p in dis_params],
+                              lr=lr_dis, betas=(0.5, 0.9))
+        self.gen_optim = Adam([p for p in gen_params],
+                              lr=lr_gen, betas=(0.5, 0.9))
 
         # Losses
         self.adv_loss = AdversarialLoss(type, device)

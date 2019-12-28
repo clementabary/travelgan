@@ -12,12 +12,14 @@ class Generator(nn.Module):
     """Create a Unet-based generator"""
 
     def __init__(self, input_nc, output_nc, num_downs, ngf=64, dropout=False,
-                 use_spectral_norm=True, norm_layer=nn.BatchNorm2d):
+                 use_spectral_norm=True, use_self_att=False,
+                 norm_layer=nn.BatchNorm2d):
         super(Generator, self).__init__()
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None,
                                              submodule=None,
                                              norm_layer=norm_layer,
+                                             use_self_attention=use_self_att,
                                              innermost=True)
         # add intermediate layers with ngf * 8 filters
         for i in range(num_downs - 5):
@@ -25,17 +27,21 @@ class Generator(nn.Module):
                                                  input_nc=None,
                                                  submodule=unet_block,
                                                  norm_layer=norm_layer,
+                                                 use_self_attention=use_self_att,
                                                  use_dropout=dropout)
         # gradually reduce the number of filters from ngf * 8 to ngf
         unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8,
                                              input_nc=None,
                                              submodule=unet_block,
+                                             use_self_attention=use_self_att,
                                              norm_layer=norm_layer)
         unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None,
                                              submodule=unet_block,
-                                             norm_layer=norm_layer)
+                                             norm_layer=norm_layer,
+                                             use_self_attention=use_self_att)
         unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None,
                                              submodule=unet_block,
+                                             use_self_attention=use_self_att,
                                              norm_layer=norm_layer)
         self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc,
                                              submodule=unet_block,
@@ -57,7 +63,8 @@ class UnetSkipConnectionBlock(nn.Module):
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
                  submodule=None, outermost=False, innermost=False,
-                 norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 norm_layer=nn.BatchNorm2d, use_self_attention=False,
+                 use_dropout=False):
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
         if type(norm_layer) == functools.partial:
@@ -72,6 +79,7 @@ class UnetSkipConnectionBlock(nn.Module):
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
         upnorm = norm_layer(outer_nc)
+        upatt = Self_Attn(outer_nc) if use_self_attention else nn.Identity()
 
         if outermost:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
@@ -85,14 +93,14 @@ class UnetSkipConnectionBlock(nn.Module):
                                         kernel_size=4, stride=2,
                                         padding=1, bias=use_bias)
             down = [downrelu, downconv]
-            up = [uprelu, upconv, upnorm]
+            up = [uprelu, upconv, upnorm, upatt]
             model = down + up
         else:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
                                         kernel_size=4, stride=2,
                                         padding=1, bias=use_bias)
             down = [downrelu, downconv, downnorm]
-            up = [uprelu, upconv, upnorm]
+            up = [uprelu, upconv, upnorm, upatt]
 
             if use_dropout:
                 model = down + [submodule] + up + [nn.Dropout(0.5)]
@@ -112,7 +120,8 @@ class Discriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
 
     def __init__(self, input_nc, ndf=64, n_layers=3,
-                 use_spectral_norm=True, norm_layer=nn.BatchNorm2d):
+                 use_spectral_norm=True, use_self_att=False,
+                 norm_layer=nn.BatchNorm2d):
         super(Discriminator, self).__init__()
         # no need to use bias as BatchNorm2d has affine parameters
         if type(norm_layer) == functools.partial:
@@ -124,6 +133,8 @@ class Discriminator(nn.Module):
         padw = 1
         sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw,
                               stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
+        if use_self_att:
+            sequence.append(Self_Attn(ndf))
         nf_mult = 1
         nf_mult_prev = 1
         for n in range(1, n_layers):
@@ -136,6 +147,8 @@ class Discriminator(nn.Module):
                 norm_layer(ndf * nf_mult),
                 nn.LeakyReLU(0.2, True)
             ]
+            if use_self_att:
+                sequence.append(Self_Attn(ndf * nf_mult))
 
         nf_mult_prev = nf_mult
         nf_mult = min(2 ** n_layers, 8)
@@ -243,4 +256,4 @@ class Self_Attn(nn.Module):
         out = out.view(m_batchsize, C, width, height)
 
         out = self.gamma * out + x
-        return out, attention
+        return out  # , attention
