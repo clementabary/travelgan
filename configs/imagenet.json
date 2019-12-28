@@ -23,13 +23,15 @@
     "nsf": 64,
     "n_layers_siam": 4,
     "latent_dim": 1000,
-    "lr": 2e-4,
+    "lr_gen": 1e-4,
+    "lr_dis": 4e-4,
     "margin": 10,
     "lambda_adv": 1,
     "lambda_travel": 10,
     "lambda_margin": 10,
     "lambda_gp": 0,
     "sn": true,
-    "type": "vanilla"
+    "sa": true,
+    "type": "hinge"
   }
 }
