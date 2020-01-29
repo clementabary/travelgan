@@ -21,7 +21,7 @@ hparams = load_json('./configs', opts.hparams)
 dataset_a, dataset_b = get_datasets(**hparams['dataset'])
 loader_a = DataLoader(dataset_a, **hparams['loading'])
 loader_b = DataLoader(dataset_b, **hparams['loading'])
-model = TravelGAN(**hparams['model'], device=device)
+model = TravelGAN(hparams['model'], device=device)
 writer, monitor = get_writer(opts.log)
 
 print('Start training..')

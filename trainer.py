@@ -9,42 +9,30 @@ import os
 
 
 class TravelGAN(nn.Module):
-    def __init__(self, input_nc, output_nc, num_downs, ngf, dropout,
-                 ndf, n_layers_dis, nsf, n_layers_siam, latent_dim,
-                 lr_gen, lr_dis, margin, lambda_adv, lambda_travel,
-                 lambda_margin, lambda_gp, type, sn, sa, device="cpu"):
+    def __init__(self, hparams, device="cpu"):
         super(TravelGAN, self).__init__()
         # Parameters
-        self.input_nc = input_nc
-        self.output_nc = output_nc
-        self.num_downs = num_downs
-        self.ngf = ngf
-        self.dropout = dropout
-        self.ndf = ndf
-        self.n_layers_dis = n_layers_dis
-        self.nsf = nsf
-        self.n_layers_siam = n_layers_siam
-        self.laten_dim = latent_dim
-        self.lr_gen = lr_gen
-        self.lr_dis = lr_dis
-        self.margin = margin
+        self.hparams = hparams
         self.device = device
-        self.lambda_adv = lambda_adv
-        self.lambda_travel = lambda_travel
-        self.lambda_margin = lambda_margin
-        self.lambda_gp = lambda_gp
-        self.type = type
-        self.sn = sn
-        self.sa = sa
 
         # Modules
-        self.gen_ab = Generator(input_nc, output_nc,
-                                num_downs, ngf, dropout, sn, sa)
-        self.gen_ba = Generator(input_nc, output_nc,
-                                num_downs, ngf, dropout, sn, sa)
-        self.dis_a = Discriminator(input_nc, ndf, n_layers_dis, sn, sa)
-        self.dis_b = Discriminator(input_nc, ndf, n_layers_dis, sn, sa)
-        self.siam = Siamese(input_nc, nsf, n_layers_siam, latent_dim)
+        self.gen_ab = Generator(**hparams["gen"])
+        self.gen_ba = Generator(**hparams["gen"])
+        self.dis_a = Discriminator(**hparams["dis"])
+        self.dis_b = Discriminator(**hparams["dis"])
+        self.siam = Siamese(**hparams["siam"])
+
+        # Loss coefficients
+        self.lambda_adv = hparams["lambda_adv"]
+        self.lambda_travel = hparams["lambda_travel"]
+        self.lambda_margin = hparams["lambda_margin"]
+        self.margin = hparams["margin"]
+        self.lambda_gp = hparams["lambda_gp"]
+        self.type = hparams["type"]
+
+        # Learning rates
+        self.lr_dis = hparams["lr_dis"]
+        self.lr_gen = hparams["lr_gen"]
 
         # Optimizers
         dis_params = list(self.dis_a.parameters()) + \
@@ -52,16 +40,16 @@ class TravelGAN(nn.Module):
         gen_params = list(self.gen_ab.parameters()) + \
             list(self.gen_ba.parameters()) + list(self.siam.parameters())
         self.dis_optim = Adam([p for p in dis_params],
-                              lr=lr_dis, betas=(0.5, 0.9))
+                              lr=self.lr_dis, betas=(0.5, 0.9))
         self.gen_optim = Adam([p for p in gen_params],
-                              lr=lr_gen, betas=(0.5, 0.9))
+                              lr=self.lr_gen, betas=(0.5, 0.9))
 
         # Losses
-        self.adv_loss = AdversarialLoss(type, device)
-        if type == "wgangp":
+        self.adv_loss = AdversarialLoss(self.type, device)
+        if self.type == "wgangp":
             self.gp = compute_gp
         self.travel_loss = TravelLoss()
-        self.margin_loss = MarginContrastiveLoss(margin)
+        self.margin_loss = MarginContrastiveLoss(self.margin)
 
         # Initialization
         self.apply(initialize_weights)
