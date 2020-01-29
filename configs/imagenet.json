@@ -1,8 +1,8 @@
 {
-  "n_epochs": 1000,
-  "n_save_steps": 100,
+  "n_epochs": 5000,
+  "n_save_steps": 500,
   "dataset": {
-    "type": "imagenet",
+    "type": "cifar",
     "data_path": "../../data/imagenet",
     "label_a": "bird",
     "label_b": "ship",
@@ -13,16 +13,31 @@
     "shuffle": true
   },
   "model": {
-    "input_nc": 3,
-    "output_nc": 3,
-    "num_downs": 5,
-    "ngf": 64,
-    "dropout": false,
-    "ndf": 64,
-    "n_layers_dis": 4,
-    "nsf": 64,
-    "n_layers_siam": 4,
-    "latent_dim": 1000,
+    "gen": {
+      "input_nc": 3,
+      "output_nc": 3,
+      "n_filters": 64,
+      "num_downs": 5,
+      "dropout": false,
+      "norm_layer": "bn",
+      "sn": true,
+      "sa": true
+    },
+    "dis": {
+      "input_nc": 3,
+      "n_filters": 64,
+      "num_downs": 4,
+      "norm_layer": "none",
+      "sn": true,
+      "sa": true
+    },
+    "siam": {
+      "input_nc": 3,
+      "n_filters": 64,
+      "num_downs": 4,
+      "latent_dim": 1000,
+      "norm_layer": "none"
+    },
     "lr_gen": 1e-4,
     "lr_dis": 4e-4,
     "margin": 10,
@@ -30,8 +45,6 @@
     "lambda_travel": 10,
     "lambda_margin": 10,
     "lambda_gp": 0,
-    "sn": true,
-    "sa": true,
     "type": "hinge"
   }
 }
