@@ -11,43 +11,47 @@ from utils import spectral_normalization
 class Generator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, dropout=False,
-                 use_spectral_norm=True, use_self_att=False,
-                 norm_layer=nn.BatchNorm2d):
+    def __init__(self, input_nc, output_nc, n_filters, num_downs,
+                 dropout=False, sn=True, sa=False, norm_layer="bn"):
         super(Generator, self).__init__()
+
+        norm_dict = {"bn": nn.BatchNorm2d, "none": nn.Identity}
+        norm_layer = norm_dict[norm_layer]
+
         # construct unet structure
-        unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None,
+        unet_block = UnetSkipConnectionBlock(n_filters * 8, n_filters * 8,
+                                             input_nc=None,
                                              submodule=None,
                                              norm_layer=norm_layer,
-                                             use_self_attention=use_self_att,
                                              innermost=True)
-        # add intermediate layers with ngf * 8 filters
+        # add intermediate layers with n_filters * 8 filters
         for i in range(num_downs - 5):
-            unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8,
+            unet_block = UnetSkipConnectionBlock(n_filters * 8, n_filters * 8,
                                                  input_nc=None,
                                                  submodule=unet_block,
                                                  norm_layer=norm_layer,
-                                                 use_self_attention=use_self_att,
                                                  use_dropout=dropout)
-        # gradually reduce the number of filters from ngf * 8 to ngf
-        unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8,
+        # gradually reduce number of filters from n_filters * 8 to n_filters
+        unet_block = UnetSkipConnectionBlock(n_filters * 4, n_filters * 8,
                                              input_nc=None,
                                              submodule=unet_block,
-                                             use_self_attention=use_self_att,
+                                             sa=sa,
                                              norm_layer=norm_layer)
-        unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None,
+        unet_block = UnetSkipConnectionBlock(n_filters * 2, n_filters * 4,
+                                             input_nc=None,
                                              submodule=unet_block,
                                              norm_layer=norm_layer,
-                                             use_self_attention=use_self_att)
-        unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None,
+                                             sa=sa)
+        unet_block = UnetSkipConnectionBlock(n_filters, n_filters * 2,
+                                             input_nc=None,
                                              submodule=unet_block,
-                                             use_self_attention=use_self_att,
                                              norm_layer=norm_layer)
-        self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc,
+        self.model = UnetSkipConnectionBlock(output_nc, n_filters,
+                                             input_nc=input_nc,
                                              submodule=unet_block,
                                              outermost=True,
                                              norm_layer=norm_layer)
-        if use_spectral_norm:
+        if sn:
             self.apply(spectral_normalization)
 
     def forward(self, input):
@@ -63,9 +67,9 @@ class UnetSkipConnectionBlock(nn.Module):
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
                  submodule=None, outermost=False, innermost=False,
-                 norm_layer=nn.BatchNorm2d, use_self_attention=False,
-                 use_dropout=False):
+                 norm_layer=nn.BatchNorm2d, sa=False, use_dropout=False):
         super(UnetSkipConnectionBlock, self).__init__()
+
         self.outermost = outermost
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
@@ -79,7 +83,7 @@ class UnetSkipConnectionBlock(nn.Module):
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
         upnorm = norm_layer(outer_nc)
-        upatt = Self_Attn(outer_nc) if use_self_attention else nn.Identity()
+        upatt = Self_Attn(outer_nc) if sa else nn.Identity()
 
         if outermost:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
@@ -119,10 +123,12 @@ class UnetSkipConnectionBlock(nn.Module):
 class Discriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3,
-                 use_spectral_norm=True, use_self_att=False,
-                 norm_layer=nn.BatchNorm2d):
+    def __init__(self, input_nc, n_filters, num_downs, sn=True,
+                 sa=False, norm_layer="none"):
         super(Discriminator, self).__init__()
+
+        norm_dict = {"bn": nn.BatchNorm2d, "none": nn.Identity}
+        norm_layer = norm_dict[norm_layer]
         # no need to use bias as BatchNorm2d has affine parameters
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
@@ -131,39 +137,39 @@ class Discriminator(nn.Module):
 
         kw = 4
         padw = 1
-        sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw,
+        sequence = [nn.Conv2d(input_nc, n_filters, kernel_size=kw,
                               stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
-        if use_self_att:
-            sequence.append(Self_Attn(ndf))
         nf_mult = 1
         nf_mult_prev = 1
-        for n in range(1, n_layers):
+        for n in range(1, num_downs):
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
             sequence += [
-                nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+                nn.Conv2d(n_filters * nf_mult_prev, n_filters * nf_mult,
                           kernel_size=kw, stride=2, padding=padw,
                           bias=use_bias),
-                norm_layer(ndf * nf_mult),
+                norm_layer(n_filters * nf_mult),
                 nn.LeakyReLU(0.2, True)
             ]
-            if use_self_att:
-                sequence.append(Self_Attn(ndf * nf_mult))
+        if sa:
+            sequence.append(Self_Attn(n_filters * nf_mult))
 
         nf_mult_prev = nf_mult
-        nf_mult = min(2 ** n_layers, 8)
+        nf_mult = min(2 ** num_downs, 8)
         sequence += [
-            nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+            nn.Conv2d(n_filters * nf_mult_prev, n_filters * nf_mult,
                       kernel_size=kw, stride=2, padding=padw, bias=use_bias),
-            norm_layer(ndf * nf_mult),
+            norm_layer(n_filters * nf_mult),
             nn.LeakyReLU(0.2, True)
         ]
+        if sa:
+            sequence.append(Self_Attn(n_filters * nf_mult))
 
         # output 1 channel prediction map
-        sequence += [nn.Conv2d(ndf * nf_mult, 1,
+        sequence += [nn.Conv2d(n_filters * nf_mult, 1,
                                kernel_size=kw, stride=1, padding=0)]
         self.model = nn.Sequential(*sequence)
-        if use_spectral_norm:
+        if sn:
             self.apply(spectral_normalization)
 
     def forward(self, input):
@@ -173,9 +179,12 @@ class Discriminator(nn.Module):
 class Siamese(nn.Module):
     """Defines a Siamese Network """
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, latent_dim=1000,
-                 use_spectral_norm=True, norm_layer=nn.BatchNorm2d):
+    def __init__(self, input_nc, n_filters, num_downs, latent_dim,
+                 sn=True, norm_layer="none"):
         super(Siamese, self).__init__()
+
+        norm_dict = {"bn": nn.BatchNorm2d, "none": nn.Identity}
+        norm_layer = norm_dict[norm_layer]
         # no need to use bias as BatchNorm2d has affine parameters
         if type(norm_layer) == functools.partial:
             use_bias = norm_layer.func == nn.InstanceNorm2d
@@ -184,34 +193,34 @@ class Siamese(nn.Module):
 
         kw = 4
         padw = 1
-        sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw,
+        sequence = [nn.Conv2d(input_nc, n_filters, kernel_size=kw,
                               stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
         nf_mult = 1
         nf_mult_prev = 1
-        for n in range(1, n_layers):
+        for n in range(1, num_downs):
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
             sequence += [
-                nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+                nn.Conv2d(n_filters * nf_mult_prev, n_filters * nf_mult,
                           kernel_size=kw, stride=2, padding=padw,
                           bias=use_bias),
-                norm_layer(ndf * nf_mult),
+                norm_layer(n_filters * nf_mult),
                 nn.LeakyReLU(0.2, True)
             ]
 
         nf_mult_prev = nf_mult
-        nf_mult = min(2 ** n_layers, 8)
+        nf_mult = min(2 ** num_downs, 8)
         sequence += [
-            nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
+            nn.Conv2d(n_filters * nf_mult_prev, n_filters * nf_mult,
                       kernel_size=kw, stride=2, padding=padw, bias=use_bias),
-            norm_layer(ndf * nf_mult),
+            norm_layer(n_filters * nf_mult),
             nn.LeakyReLU(0.2, True)
         ]
 
-        sequence += [nn.Conv2d(ndf * nf_mult, latent_dim,
+        sequence += [nn.Conv2d(n_filters * nf_mult, latent_dim,
                                kernel_size=kw, stride=1, padding=0)]
         self.model = nn.Sequential(*sequence)
-        if use_spectral_norm:
+        if sn:
             self.apply(spectral_normalization)
 
     def forward(self, input):
