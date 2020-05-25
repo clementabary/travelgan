@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.autograd as ag
 import numpy as np
 
@@ -20,7 +21,7 @@ class AdversarialLoss(nn.Module):
         elif type in ["wgan", "wgangp", "hinge"]:
             self.loss = None
 
-    def forward(self, x, bool):
+    def forward(self, x, bool, is_disc=False):
         if self.type in ["vanilla", "lsgan"]:
             if bool:
                 y = self.true_label.expand_as(x)
@@ -31,8 +32,10 @@ class AdversarialLoss(nn.Module):
         elif self.type in ["wgan", "wgangp"]:
             return - x.mean() if bool else x.mean()
         elif self.type == "hinge":
-            relu = nn.ReLU(True)
-            return relu(1. - x).mean() if bool else relu(1. + x).mean()
+            if is_disc:
+                return F.relu(1. - x).mean() if bool else F.relu(1. + x).mean()
+            else:
+                return - x.mean()
 
 
 @torch.enable_grad()
