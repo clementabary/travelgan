@@ -40,9 +40,9 @@ class TravelGAN(nn.Module):
         gen_params = list(self.gen_ab.parameters()) + \
             list(self.gen_ba.parameters()) + list(self.siam.parameters())
         self.dis_optim = Adam([p for p in dis_params],
-                              lr=self.lr_dis, betas=(0.5, 0.9))
+                              lr=self.lr_dis, betas=(0.5, 0.999))
         self.gen_optim = Adam([p for p in gen_params],
-                              lr=self.lr_gen, betas=(0.5, 0.9))
+                              lr=self.lr_gen, betas=(0.5, 0.999))
 
         # Losses
         self.adv_loss = AdversarialLoss(self.type, device)
@@ -63,11 +63,11 @@ class TravelGAN(nn.Module):
         self.dis_optim.zero_grad()
         x_ab = self.gen_ab(x_a).detach()
         x_ba = self.gen_ba(x_b).detach()
-        adv_loss = self.adv_loss(self.dis_a(x_a), True) + \
-            self.adv_loss(self.dis_b(x_b), True) + \
-            self.adv_loss(self.dis_b(x_ab), False) + \
-            self.adv_loss(self.dis_a(x_ba), False)
-        dis_loss = self.lambda_adv * adv_loss
+        adv_loss = self.adv_loss(self.dis_a(x_a), True, True) + \
+            self.adv_loss(self.dis_b(x_b), True, True) + \
+            self.adv_loss(self.dis_b(x_ab), False, True) + \
+            self.adv_loss(self.dis_a(x_ba), False, True)
+        dis_loss = self.lambda_adv * 0.5 * adv_loss
         if self.type == "wgangp":
             gp = self.gp(self.dis_a, x_a, x_ba) + \
                 self.gp(self.dis_b, x_b, x_ab)
@@ -80,8 +80,8 @@ class TravelGAN(nn.Module):
         self.gen_optim.zero_grad()
         x_ab = self.gen_ab(x_a)
         x_ba = self.gen_ba(x_b)
-        adv_loss = self.adv_loss(self.dis_b(x_ab), True) + \
-            self.adv_loss(self.dis_a(x_ba), True)
+        adv_loss = self.adv_loss(self.dis_b(x_ab), True, False) + \
+            self.adv_loss(self.dis_a(x_ba), True, False)
         travel_loss = self.travel_loss(x_a, x_ab, self.siam) + \
             self.travel_loss(x_b, x_ba, self.siam)
         margin_loss = self.margin_loss(
